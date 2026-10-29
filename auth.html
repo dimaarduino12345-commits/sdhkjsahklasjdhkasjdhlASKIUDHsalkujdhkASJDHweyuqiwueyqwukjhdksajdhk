@@ -55,7 +55,6 @@
             width: 100%; padding: 16px; background-color: #000; color: #fff; border: none;
             border-radius: 16px; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: auto;
         }
-        .btn-continue:disabled { opacity: 0.5; cursor: not-allowed; }
 
         /* Слайдер */
         .swipe-container {
@@ -118,12 +117,6 @@
         .country-item .country-flag { width: 20px; height: 20px; }
         .country-item .country-name { flex: 1; font-size: 14px; color: var(--text-main); }
         .country-item .country-dial { font-size: 14px; color: var(--text-muted); }
-
-        #recaptcha-container {
-            position: absolute;
-            left: -9999px;
-            top: -9999px;
-        }
     </style>
 </head>
 <body>
@@ -133,10 +126,10 @@
             <div class="logo-badge">ID</div>
         </div>
 
-        <!-- Шаг 1: Ввод телефона с выбором страны -->
+        <!-- Шаг 1: Ввод телефона -->
         <div class="step hidden" id="step-phone">
             <div class="step-title">Введите номер телефона</div>
-            <div class="step-subtitle">Мы отправим SMS с кодом подтверждения.</div>
+            <div class="step-subtitle">Войдите в свой аккаунт DMI ID.</div>
             
             <div class="phone-input-group" id="phoneGroup">
                 <div class="country-selector" id="countrySelector">
@@ -150,18 +143,10 @@
                     <div id="countryList"></div>
                 </div>
             </div>
-            <button class="btn-continue" id="btnSendSms">Получить код</button>
+            <button class="btn-continue" id="btnPhoneContinue">Продолжить</button>
         </div>
 
-        <!-- Шаг 2: Ввод кода из SMS -->
-        <div class="step hidden" id="step-code">
-            <div class="step-title">Введите код из SMS</div>
-            <div class="step-subtitle" id="codeSubtitle">Код отправлен на номер ...</div>
-            <input type="text" id="codeInput" class="input-field" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="off">
-            <button class="btn-continue" id="btnVerifyCode">Подтвердить</button>
-        </div>
-
-        <!-- Шаг 3: Ввод имени -->
+        <!-- Шаг 2: Ввод имени (если новый пользователь) -->
         <div class="step hidden" id="step-name">
             <div class="step-title">Как вас зовут?</div>
             <div class="step-subtitle">Похоже, вы здесь впервые. Давайте познакомимся!</div>
@@ -169,7 +154,7 @@
             <button class="btn-continue" id="btnSaveName">Продолжить</button>
         </div>
 
-        <!-- Шаг 4: Слайдер -->
+        <!-- Шаг 3: Слайдер -->
         <div class="step hidden" id="step-swipe">
             <div class="step-title" style="margin-top: 20px;">Подтверждение</div>
             <div class="step-subtitle">Проведите ползунок вправо, чтобы авторизовать устройство.</div>
@@ -184,7 +169,7 @@
             </div>
         </div>
 
-        <!-- Шаг 5: Успех -->
+        <!-- Шаг 4: Успех -->
         <div class="step hidden" id="step-success">
             <div class="success-icon">
                 <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -193,7 +178,7 @@
             <div class="step-subtitle">Вход подтвержден. Вернитесь на первое устройство.</div>
         </div>
 
-        <!-- Шаг 6: Ошибка -->
+        <!-- Шаг 5: Ошибка -->
         <div class="step hidden" id="step-error">
             <div class="error-icon">
                 <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
@@ -202,266 +187,246 @@
             <div class="step-subtitle" id="errorMessage">Что-то пошло не так.</div>
             <button class="btn-continue" onclick="location.reload()">Попробовать снова</button>
         </div>
-
-        <div id="recaptcha-container"></div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, RecaptchaVerifier, signInWithPhoneNumber, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
+            const urlParams = new URLSearchParams(window.location.search);
+            const sessionId = urlParams.get('session');
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyAA-JCIuZR_NYNCDCdRt37ZAwc96KrdWzk",
-            authDomain: "dmiid-90c5d.firebaseapp.com",
-            projectId: "dmiid-90c5d",
-            storageBucket: "dmiid-90c5d.firebasestorage.app",
-            messagingSenderId: "1066201426314",
-            appId: "1:1066201426314:web:834396dabcafd773604073",
-            measurementId: "G-VVD1KNK0YG"
-        };
+            let userPhone = "";
+            let userName = "";
+            let mqttClient = null;
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+            const stepPhone = document.getElementById('step-phone');
+            const stepName = document.getElementById('step-name');
+            const stepSwipe = document.getElementById('step-swipe');
+            const stepSuccess = document.getElementById('step-success');
+            const stepError = document.getElementById('step-error');
 
-        const brokerUrl = 'wss://broker.emqx.io:8084/mqtt';
-        const urlParams = new URLSearchParams(window.location.search);
-        const sessionId = urlParams.get('session');
+            const phoneInput = document.getElementById('phoneInput');
+            const nameInput = document.getElementById('nameInput');
+            const errorMessage = document.getElementById('errorMessage');
 
-        let confirmationResult = null;
-        let userPhone = "";
+            if (!sessionId) {
+                stepError.classList.remove('hidden');
+                errorMessage.textContent = 'Ошибка сессии. Откройте ссылку с первого устройства.';
+                return;
+            }
 
-        const stepPhone = document.getElementById('step-phone');
-        const stepCode = document.getElementById('step-code');
-        const stepName = document.getElementById('step-name');
-        const stepSwipe = document.getElementById('step-swipe');
-        const stepSuccess = document.getElementById('step-success');
-        const stepError = document.getElementById('step-error');
+            stepPhone.classList.remove('hidden');
 
-        const phoneInput = document.getElementById('phoneInput');
-        const codeInput = document.getElementById('codeInput');
-        const nameInput = document.getElementById('nameInput');
-        const codeSubtitle = document.getElementById('codeSubtitle');
-        const errorMessage = document.getElementById('errorMessage');
+            // Список стран
+            const countries = [
+                { name: 'Россия', code: 'ru', dial: '+7' }, { name: 'США', code: 'us', dial: '+1' },
+                { name: 'Великобритания', code: 'gb', dial: '+44' }, { name: 'Германия', code: 'de', dial: '+49' },
+                { name: 'Франция', code: 'fr', dial: '+33' }, { name: 'Италия', code: 'it', dial: '+39' },
+                { name: 'Испания', code: 'es', dial: '+34' }, { name: 'Китай', code: 'cn', dial: '+86' },
+                { name: 'Япония', code: 'jp', dial: '+81' }, { name: 'Индия', code: 'in', dial: '+91' },
+                { name: 'Бразилия', code: 'br', dial: '+55' }, { name: 'Канада', code: 'ca', dial: '+1' },
+                { name: 'Австралия', code: 'au', dial: '+61' }, { name: 'Казахстан', code: 'kz', dial: '+7' },
+                { name: 'Беларусь', code: 'by', dial: '+375' }, { name: 'Украина', code: 'ua', dial: '+380' },
+                { name: 'Турция', code: 'tr', dial: '+90' }, { name: 'Южная Корея', code: 'kr', dial: '+82' },
+                { name: 'Индонезия', code: 'id', dial: '+62' }, { name: 'Мексика', code: 'mx', dial: '+52' },
+                { name: 'Саудовская Аравия', code: 'sa', dial: '+966' }, { name: 'ОАЭ', code: 'ae', dial: '+971' },
+                { name: 'Аргентина', code: 'ar', dial: '+54' }, { name: 'ЮАР', code: 'za', dial: '+27' },
+                { name: 'Египет', code: 'eg', dial: '+20' }, { name: 'Нидерланды', code: 'nl', dial: '+31' },
+                { name: 'Швейцария', code: 'ch', dial: '+41' }, { name: 'Швеция', code: 'se', dial: '+46' },
+                { name: 'Норвегия', code: 'no', dial: '+47' }, { name: 'Польша', code: 'pl', dial: '+48' },
+                { name: 'Португалия', code: 'pt', dial: '+351' }, { name: 'Греция', code: 'gr', dial: '+30' },
+                { name: 'Израиль', code: 'il', dial: '+972' }, { name: 'Вьетнам', code: 'vn', dial: '+84' },
+                { name: 'Таиланд', code: 'th', dial: '+66' }, { name: 'Малайзия', code: 'my', dial: '+60' },
+                { name: 'Сингапур', code: 'sg', dial: '+65' }, { name: 'Новая Зеландия', code: 'nz', dial: '+64' },
+                { name: 'Финляндия', code: 'fi', dial: '+358' }, { name: 'Дания', code: 'dk', dial: '+45' }
+            ];
 
-        if (!sessionId) {
-            stepError.classList.remove('hidden');
-            errorMessage.textContent = 'Ошибка сессии. Откройте ссылку с первого устройства.';
-            throw new Error("No session");
-        }
+            let currentCountry = countries[0];
+            const countrySelector = document.getElementById('countrySelector');
+            const countryDropdown = document.getElementById('countryDropdown');
+            const countryList = document.getElementById('countryList');
+            const countrySearch = document.getElementById('countrySearch');
+            const selectedFlag = document.getElementById('selectedFlag');
+            const selectedDial = document.getElementById('selectedDial');
 
-        stepPhone.classList.remove('hidden');
+            function renderCountries(filterText = '') {
+                countryList.innerHTML = '';
+                const filtered = countries.filter(c => c.name.toLowerCase().includes(filterText.toLowerCase()) || c.dial.includes(filterText));
+                filtered.forEach(country => {
+                    const item = document.createElement('div');
+                    item.className = 'country-item';
+                    item.innerHTML = `
+                        <img src="https://flagcdn.com/w40/${country.code}.png" class="country-flag" alt="${country.name}">
+                        <span class="country-name">${country.name}</span>
+                        <span class="country-dial">${country.dial}</span>
+                    `;
+                    item.addEventListener('click', () => selectCountry(country));
+                    countryList.appendChild(item);
+                });
+            }
 
-        // Список стран
-        const countries = [
-            { name: 'Россия', code: 'ru', dial: '+7' }, { name: 'США', code: 'us', dial: '+1' },
-            { name: 'Великобритания', code: 'gb', dial: '+44' }, { name: 'Германия', code: 'de', dial: '+49' },
-            { name: 'Франция', code: 'fr', dial: '+33' }, { name: 'Италия', code: 'it', dial: '+39' },
-            { name: 'Испания', code: 'es', dial: '+34' }, { name: 'Китай', code: 'cn', dial: '+86' },
-            { name: 'Япония', code: 'jp', dial: '+81' }, { name: 'Индия', code: 'in', dial: '+91' },
-            { name: 'Бразилия', code: 'br', dial: '+55' }, { name: 'Канада', code: 'ca', dial: '+1' },
-            { name: 'Австралия', code: 'au', dial: '+61' }, { name: 'Казахстан', code: 'kz', dial: '+7' },
-            { name: 'Беларусь', code: 'by', dial: '+375' }, { name: 'Украина', code: 'ua', dial: '+380' },
-            { name: 'Турция', code: 'tr', dial: '+90' }, { name: 'Южная Корея', code: 'kr', dial: '+82' },
-            { name: 'Индонезия', code: 'id', dial: '+62' }, { name: 'Мексика', code: 'mx', dial: '+52' },
-            { name: 'Саудовская Аравия', code: 'sa', dial: '+966' }, { name: 'ОАЭ', code: 'ae', dial: '+971' },
-            { name: 'Аргентина', code: 'ar', dial: '+54' }, { name: 'ЮАР', code: 'za', dial: '+27' },
-            { name: 'Египет', code: 'eg', dial: '+20' }, { name: 'Нидерланды', code: 'nl', dial: '+31' },
-            { name: 'Швейцария', code: 'ch', dial: '+41' }, { name: 'Швеция', code: 'se', dial: '+46' },
-            { name: 'Норвегия', code: 'no', dial: '+47' }, { name: 'Польша', code: 'pl', dial: '+48' },
-            { name: 'Португалия', code: 'pt', dial: '+351' }, { name: 'Греция', code: 'gr', dial: '+30' },
-            { name: 'Израиль', code: 'il', dial: '+972' }, { name: 'Вьетнам', code: 'vn', dial: '+84' },
-            { name: 'Таиланд', code: 'th', dial: '+66' }, { name: 'Малайзия', code: 'my', dial: '+60' },
-            { name: 'Сингапур', code: 'sg', dial: '+65' }, { name: 'Новая Зеландия', code: 'nz', dial: '+64' },
-            { name: 'Финляндия', code: 'fi', dial: '+358' }, { name: 'Дания', code: 'dk', dial: '+45' }
-        ];
+            function selectCountry(country) {
+                currentCountry = country;
+                selectedFlag.src = `https://flagcdn.com/w40/${country.code}.png`;
+                selectedDial.textContent = country.dial;
+                countryDropdown.classList.remove('open');
+                countrySearch.value = '';
+                renderCountries();
+            }
 
-        let currentCountry = countries[0];
-        const countrySelector = document.getElementById('countrySelector');
-        const countryDropdown = document.getElementById('countryDropdown');
-        const countryList = document.getElementById('countryList');
-        const countrySearch = document.getElementById('countrySearch');
-        const selectedFlag = document.getElementById('selectedFlag');
-        const selectedDial = document.getElementById('selectedDial');
-
-        // Рендер списка стран с новыми флагами
-        function renderCountries(filterText = '') {
-            countryList.innerHTML = '';
-            const filtered = countries.filter(c => c.name.toLowerCase().includes(filterText.toLowerCase()) || c.dial.includes(filterText));
-            filtered.forEach(country => {
-                const item = document.createElement('div');
-                item.className = 'country-item';
-                item.innerHTML = `
-                    <img src="https://flagcdn.com/w40/${country.code}.png" class="country-flag" alt="${country.name}">
-                    <span class="country-name">${country.name}</span>
-                    <span class="country-dial">${country.dial}</span>
-                `;
-                item.addEventListener('click', () => selectCountry(country));
-                countryList.appendChild(item);
+            countrySelector.addEventListener('click', (e) => {
+                e.stopPropagation();
+                countryDropdown.classList.toggle('open');
+                if (countryDropdown.classList.contains('open')) countrySearch.focus();
             });
-        }
 
-        function selectCountry(country) {
-            currentCountry = country;
-            selectedFlag.src = `https://flagcdn.com/w40/${country.code}.png`;
-            selectedDial.textContent = country.dial;
-            countryDropdown.classList.remove('open');
-            countrySearch.value = '';
+            document.addEventListener('click', (e) => {
+                if (!countryDropdown.contains(e.target) && e.target !== countrySelector) countryDropdown.classList.remove('open');
+            });
+
+            countrySearch.addEventListener('input', (e) => renderCountries(e.target.value));
+            phoneInput.addEventListener('input', (e) => e.target.value = e.target.value.replace(/[^\d]/g, ''));
             renderCountries();
-        }
 
-        countrySelector.addEventListener('click', (e) => {
-            e.stopPropagation();
-            countryDropdown.classList.toggle('open');
-            if (countryDropdown.classList.contains('open')) countrySearch.focus();
-        });
+            // Подключение к MQTT (База Данных)
+            mqttClient = mqtt.connect(brokerUrl);
 
-        document.addEventListener('click', (e) => {
-            if (!countryDropdown.contains(e.target) && e.target !== countrySelector) countryDropdown.classList.remove('open');
-        });
+            // --- ШАГ 1: ВВОД ТЕЛЕФОНА И ПРОВЕРКА БАЗЫ ---
+            document.getElementById('btnPhoneContinue').addEventListener('click', () => {
+                let phone = phoneInput.value.trim();
+                if (phone.length < 5) return alert('Введите корректный номер');
+                
+                userPhone = currentCountry.dial + phone.replace(/\D/g, '');
+                
+                // Меняем текст кнопки на время загрузки
+                const btn = document.getElementById('btnPhoneContinue');
+                btn.textContent = 'Проверка...';
+                btn.disabled = true;
 
-        countrySearch.addEventListener('input', (e) => renderCountries(e.target.value));
-        phoneInput.addEventListener('input', (e) => e.target.value = e.target.value.replace(/[^\d]/g, ''));
-        renderCountries();
+                // Запрашиваем данные из базы
+                checkUserInDB(userPhone);
+            });
 
-        // Инициализация reCAPTCHA
-        window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            'size': 'invisible',
-            'callback': (response) => {}
-        });
+            function checkUserInDB(phone) {
+                const dbTopic = `dmi/db/users/${phone}`;
+                let isSubscribed = true;
 
-        document.getElementById('btnSendSms').addEventListener('click', async () => {
-            let phone = phoneInput.value.trim();
-            if (!phone) return alert('Введите номер телефона');
-            
-            if (!phone.startsWith('+')) {
-                phone = currentCountry.dial + phone.replace(/\D/g, '');
-            }
-            userPhone = phone;
+                mqttClient.subscribe(dbTopic);
 
-            try {
-                confirmationResult = await signInWithPhoneNumber(auth, userPhone, window.recaptchaVerifier);
-                codeSubtitle.textContent = `Код отправлен на ${userPhone}`;
-                stepPhone.classList.add('hidden');
-                stepCode.classList.remove('hidden');
-            } catch (error) {
-                console.error(error);
-                alert('Ошибка: ' + error.message);
-                if (window.recaptchaVerifier) window.recaptchaVerifier.clear();
-            }
-        });
+                // Таймаут: если через 1.5 сек данных нет, значит пользователь новый
+                const timeout = setTimeout(() => {
+                    if (isSubscribed) {
+                        mqttClient.unsubscribe(dbTopic);
+                        mqttClient.removeListener('message', onMessage);
+                        
+                        // Новый пользователь -> запрашиваем имя
+                        stepPhone.classList.add('hidden');
+                        stepName.classList.remove('hidden');
+                    }
+                }, 1500);
 
-        document.getElementById('btnVerifyCode').addEventListener('click', async () => {
-            const code = codeInput.value.trim();
-            if (!code) return alert('Введите код');
-
-            try {
-                const result = await confirmationResult.confirm(code);
-                const user = result.user;
-
-                const userDocRef = doc(db, 'users', user.uid);
-                const userDoc = await getDoc(userDocRef);
-
-                if (userDoc.exists() && userDoc.data().name) {
-                    stepCode.classList.add('hidden');
-                    stepSwipe.classList.remove('hidden');
-                } else {
-                    stepCode.classList.add('hidden');
-                    stepName.classList.remove('hidden');
+                function onMessage(topic, message) {
+                    if (topic === dbTopic) {
+                        clearTimeout(timeout);
+                        isSubscribed = false;
+                        const userData = JSON.parse(message.toString());
+                        userName = userData.name;
+                        
+                        mqttClient.unsubscribe(dbTopic);
+                        mqttClient.removeListener('message', onMessage);
+                        
+                        // Пользователь найден -> сразу к свайпу
+                        stepPhone.classList.add('hidden');
+                        stepSwipe.classList.remove('hidden');
+                        setTimeout(updateMaxDrag, 50);
+                    }
                 }
-            } catch (error) {
-                console.error(error);
-                alert('Неверный код или ошибка: ' + error.message);
+
+                mqttClient.on('message', onMessage);
             }
-        });
 
-        document.getElementById('btnSaveName').addEventListener('click', async () => {
-            const name = nameInput.value.trim();
-            if (!name) return alert('Введите ваше имя');
+            // --- ШАГ 2: СОХРАНЕНИЕ НОВОГО ПОЛЬЗОВАТЕЛЯ ---
+            document.getElementById('btnSaveName').addEventListener('click', () => {
+                const name = nameInput.value.trim();
+                if (!name) return alert('Введите ваше имя');
 
-            const user = auth.currentUser;
-            if (!user) return;
-
-            try {
-                await updateProfile(user, { displayName: name });
-                await setDoc(doc(db, 'users', user.uid), {
-                    name: name,
-                    phone: userPhone,
-                    createdAt: new Date()
-                }, { merge: true });
+                userName = name;
+                const dbTopic = `dmi/db/users/${userPhone}`;
+                
+                // Сохраняем в базу (retain: true означает, что брокер запомнит это)
+                mqttClient.publish(dbTopic, JSON.stringify({ name: userName }), { retain: true });
 
                 stepName.classList.add('hidden');
                 stepSwipe.classList.remove('hidden');
-            } catch (error) {
-                console.error(error);
-                alert('Ошибка сохранения: ' + error.message);
+                setTimeout(updateMaxDrag, 50);
+            });
+
+            // --- ШАГ 3: СЛАЙДЕР ---
+            const container = document.getElementById('swipeContainer');
+            const gradient = document.getElementById('swipeGradient');
+            const handle = document.getElementById('swipeHandle');
+            const text = document.getElementById('swipeText');
+            let isDragging = false, startX = 0, currentX = 0, maxDrag = 0, isCompleted = false;
+
+            function updateMaxDrag() { maxDrag = container.offsetWidth - handle.offsetWidth - 8; }
+            window.addEventListener('resize', updateMaxDrag);
+
+            handle.addEventListener('pointerdown', startDrag);
+            window.addEventListener('pointermove', drag);
+            window.addEventListener('pointerup', endDrag);
+            window.addEventListener('pointercancel', endDrag);
+
+            function startDrag(e) {
+                if (isCompleted) return;
+                isDragging = true; startX = e.clientX;
+                container.classList.add('dragging'); handle.setPointerCapture(e.pointerId);
             }
-        });
 
-        // --- Слайдер ---
-        const container = document.getElementById('swipeContainer');
-        const gradient = document.getElementById('swipeGradient');
-        const handle = document.getElementById('swipeHandle');
-        const text = document.getElementById('swipeText');
-        let isDragging = false, startX = 0, currentX = 0, maxDrag = 0, isCompleted = false;
+            function drag(e) {
+                if (!isDragging) return;
+                let deltaX = e.clientX - startX;
+                if (deltaX < 0) deltaX = 0;
+                if (deltaX > maxDrag) deltaX = maxDrag;
+                currentX = deltaX; updateUI(deltaX);
+            }
 
-        function updateMaxDrag() { maxDrag = container.offsetWidth - handle.offsetWidth - 8; }
-        window.addEventListener('resize', updateMaxDrag);
+            function endDrag(e) {
+                if (!isDragging) return;
+                isDragging = false; container.classList.remove('dragging');
+                if (currentX > maxDrag * 0.85) completeSwipe();
+                else { currentX = 0; updateUI(0); text.style.opacity = '1'; text.style.color = '#111827'; }
+            }
 
-        handle.addEventListener('pointerdown', startDrag);
-        window.addEventListener('pointermove', drag);
-        window.addEventListener('pointerup', endDrag);
-        window.addEventListener('pointercancel', endDrag);
+            function updateUI(deltaX) {
+                handle.style.transform = `translateX(${deltaX}px)`;
+                gradient.style.width = `${deltaX + 56}px`;
+                text.style.opacity = Math.max(0, 1 - (deltaX / maxDrag) * 1.5);
+            }
 
-        function startDrag(e) {
-            if (isCompleted) return;
-            isDragging = true; startX = e.clientX;
-            container.classList.add('dragging'); handle.setPointerCapture(e.pointerId);
-        }
+            function completeSwipe() {
+                isCompleted = true;
+                handle.style.transform = `translateX(${maxDrag}px)`;
+                gradient.style.width = '100%';
+                text.textContent = 'Отправка...';
+                text.style.opacity = '1';
+                text.style.color = '#fff';
 
-        function drag(e) {
-            if (!isDragging) return;
-            let deltaX = e.clientX - startX;
-            if (deltaX < 0) deltaX = 0;
-            if (deltaX > maxDrag) deltaX = maxDrag;
-            currentX = deltaX; updateUI(deltaX);
-        }
-
-        function endDrag(e) {
-            if (!isDragging) return;
-            isDragging = false; container.classList.remove('dragging');
-            if (currentX > maxDrag * 0.85) completeSwipe();
-            else { currentX = 0; updateUI(0); text.style.opacity = '1'; text.style.color = '#111827'; }
-        }
-
-        function updateUI(deltaX) {
-            handle.style.transform = `translateX(${deltaX}px)`;
-            gradient.style.width = `${deltaX + 56}px`;
-            text.style.opacity = Math.max(0, 1 - (deltaX / maxDrag) * 1.5);
-        }
-
-        function completeSwipe() {
-            isCompleted = true;
-            handle.style.transform = `translateX(${maxDrag}px)`;
-            gradient.style.width = '100%';
-            text.textContent = 'Отправка...';
-            text.style.opacity = '1';
-            text.style.color = '#fff';
-
-            const client = mqtt.connect(brokerUrl);
-            const topic = `dmi/auth/session/${sessionId}`;
-
-            client.on('connect', () => {
-                client.publish(topic, JSON.stringify({ status: 'success', phone: userPhone }), () => {
+                // Отправляем данные на первое устройство
+                const sessionTopic = `dmi/auth/session/${sessionId}`;
+                
+                mqttClient.publish(sessionTopic, JSON.stringify({ 
+                    status: 'success', 
+                    phone: userPhone,
+                    name: userName
+                }), () => {
                     setTimeout(() => {
                         stepSwipe.classList.add('hidden');
                         stepSuccess.classList.remove('hidden');
                     }, 500);
-                    setTimeout(() => client.end(), 1000);
+                    setTimeout(() => mqttClient.end(), 1000);
                 });
-            });
-        }
+            }
+        });
     </script>
 </body>
 </html>
