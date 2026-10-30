@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DMI ID - Документация</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Подключаем подсветку синтаксиса -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
+
+    <style>
+        :root {
+            --bg-base: #ffffff;
+            --bg-sidebar: #f8fafc;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --accent: #a855f7;
+            --accent-hover: #9333ea;
+            --border: #e2e8f0;
+            --code-bg: #282c34;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            display: flex;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Боковое меню */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            padding: 24px 16px;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 32px;
+            padding-left: 12px;
+        }
+        
+        .logo-badge {
+            background: #000;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .nav-section {
+            margin-bottom: 24px;
+        }
+
+        .nav-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            padding-left: 12px;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 8px 12px;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background-color: #f1f5f9;
+            color: var(--accent);
+        }
+
+        /* Основной контент */
+        .main-content {
+            margin-left: 280px;
+            padding: 48px 64px;
+            flex: 1;
+            max-width: 1000px;
+        }
+
+        h1 {
+            font-size: 36px;
+            font-weight: 800;
+            margin-bottom: 16px;
+            letter-spacing: -0.5px;
+        }
+
+        h2 {
+            font-size: 24px;
+            font-weight: 700;
+            margin-top: 48px;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-top: 32px;
+            margin-bottom: 12px;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: #334155;
+        }
+
+        ul, ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+
+        li { margin-bottom: 8px; }
+
+        /* Блоки кода */
+        pre {
+            margin: 16px 0 24px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--code-bg);
+        }
+        
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 14px;
+        }
+
+        /* Инлайн код */
+        p code, li code {
+            background: #f1f5f9;
+            color: #db2777;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .alert {
+            padding: 16px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 12px;
+            font-size: 14px;
+        }
+
+        .alert-info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            color: #1e3a8a;
+        }
+
+        .alert-warning {
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            color: #92400e;
+        }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; position: static; }
+            .main-content { margin-left: 0; padding: 24px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Боковая панель -->
+    <aside class="sidebar">
+        <div class="logo">
+            <span>DMI</span>
+            <span class="logo-badge">ID</span>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-title">Начало работы</div>
+            <a href="#intro" class="nav-link active">Введение</a>
+            <a href="#how-it-works" class="nav-link">Как это работает</a>
+            <a href="#security" class="nav-link">Безопасность</a>
+        </div>
+
+        <div class="nav-section">
+            <div class="nav-title">Примеры кода</div>
+            <a href="#js" class="nav-link">JavaScript (Frontend)</a>
+            <a href="#python" class="nav-link">Python (Backend)</a>
+            <a href="#nodejs" class="nav-link">Node.js</a>
+            <a href="#php" class="nav-link">PHP</a>
+            <a href="#cpp" class="nav-link">C++ (Arduino / ESP32)</a>
+        </div>
+    </aside>
+
+    <!-- Контент -->
+    <main class="main-content">
+        <h1 id="intro">DMI ID</h1>
+        <p>DMI ID — это система авторизации, основанная на подтверждении входа через мобильное устройство с помощью свайпа. Она использует MQTT-брокер для обмена данными в реальном времени и не требует сложных серверных настроек.</p>
+
+        <div class="alert alert-info">
+            <div>
+                <strong>Ключевая особенность:</strong> Вы генерируете уникальный ID сессии, показываете пользователю ссылку (или QR-код), он подтверждает вход на телефоне, а ваше приложение мгновенно получает его имя и номер телефона.
+            </div>
+        </div>
+
+        <h2 id="how-it-works">Как это работает</h2>
+        <ol>
+            <li>Ваше приложение генерирует случайный <code>sessionId</code> (например, <code>A1B2C3D4</code>).</li>
+            <li>Приложение подписывается на MQTT-топик <code>dmi/auth/session/A1B2C3D4</code>.</li>
+            <li>Пользователю показывается ссылка: <code>http://pasport-dmi.cc.cd/auth.html?session=A1B2C3D4&app=Название</code>.</li>
+            <li>Пользователь открывает ссылку на телефоне, вводит данные и свайпает.</li>
+            <li>Сайт отправляет в топик JSON: <code>{"status": "success", "phone": "+7999...", "name": "Иван"}</code>.</li>
+            <li>Ваше приложение ловит это сообщение и авторизует пользователя.</li>
+        </ol>
+
+        <h2 id="security">Безопасность</h2>
+        <p>Система DMI ID защищает пользователей от фишинга. В ссылке вы передаете название вашего приложения в параметре <code>app</code>.</p>
+        <ul>
+            <li>Если ваше приложение добавлено в официальный реестр DMI, пользователь увидит название приложения без предупреждений.</li>
+            <li>Если приложение неизвестно системе (сторонняя разработка), сайт <code>auth.html</code> автоматически покажет красное предупреждение: <strong>«Не рекомендуем входить в это приложение»</strong>. Это нормальное поведение для сторонних сервисов.</li>
+        </ul>
+
+        <h2 id="js">JavaScript (Frontend)</h2>
+        <p>Пример реализации кнопки входа для веб-сайта с использованием MQTT через WebSockets.</p>
+        <pre><code class="language-javascript">// 1. Подключаем MQTT клиент
+const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+
+// 2. Генерируем ID сессии
+const sessionId = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+// 3. Формируем ссылку (передаем название приложения в app)
+const appName = "My Super App";
+const link = `http://pasport-dmi.cc.cd/auth.html?session=${sessionId}&app=${encodeURIComponent(appName)}`;
+
+// Показываем ссылку пользователю
+document.getElementById('login-btn').onclick = () => {
+    window.open(link, '_blank');
+};
+
+// 4. Ждем ответа
+mqttClient.on('connect', () => {
+    mqttClient.subscribe(`dmi/auth/session/${sessionId}`);
+});
+
+mqttClient.on('message', (topic, message) => {
+    const data = JSON.parse(message.toString());
+    if (data.status === 'success') {
+        console.log("Пользователь вошел!");
+        console.log("Имя:", data.name);
+        console.log("Телефон:", data.phone);
+        
+        // Авторизуем пользователя в вашей системе
+        localStorage.setItem('token', data.phone);
+    }
+});</code></pre>
+
+        <h2 id="python">Python (Backend / Telegram Bot)</h2>
+        <p>Если вы хотите проверять вход через Python (например, в Telegram-боте).</p>
+        <pre><code class="language-python">import paho.mqtt.client as mqtt
+import json
+
+session_id = "A1B2C3D4" # ID, который вы передали пользователю
+topic = f"dmi/auth/session/{session_id}"
+
+def on_connect(client, userdata, flags, rc):
+    print("Ожидание входа...")
+    client.subscribe(topic)
+
+def on_message(client, userdata, msg):
+    data = json.loads(msg.payload.decode())
+    if data.get("status") == "success":
+        print(f"✅ Успешный вход!")
+        print(f"👤 Имя: {data.get('name')}")
+        print(f"📱 Телефон: {data.get('phone')}")
+        client.disconnect()
+
+client = mqtt.Client()
+client.on_connect = on_connect
+client.on_message = on_message
+
+client.connect("broker.emqx.io", 1883, 60)
+client.loop_forever()</code></pre>
+
+        <h2 id="nodejs">Node.js</h2>
+        <p>Для серверной части на Node.js используйте библиотеку <code>mqtt</code>.</p>
+        <pre><code class="language-javascript">const mqtt = require('mqtt');
+const client = mqtt.connect('mqtt://broker.emqx.io:1883');
+
+const sessionId = "TEST1234";
+const topic = `dmi/auth/session/${sessionId}`;
+
+client.on('connect', () => {
+    client.subscribe(topic, (err) => {
+        if (!err) console.log(`Ожидание подтверждения для сессии ${sessionId}...`);
+    });
+});
+
+client.on('message', (topic, message) => {
+    const data = JSON.parse(message.toString());
+    
+    if (data.status === 'success') {
+        console.log('Успешный вход:', data.name);
+        // Создаем JWT токен или сессию
+    }
+});</code></pre>
+
+        <h2 id="php">PHP</h2>
+        <p>PHP не очень подходит для постоянного прослушивания MQTT, но можно использовать скрипт, который запускается по Cron или читает данные с задержкой.</p>
+        <pre><code class="language-php">&lt;?php
+require('phpMQTT.php');
+
+$server = 'broker.emqx.io';
+$port = 1883;
+$username = '';
+$password = '';
+$client_id = 'phpClient' . rand();
+
+$mqtt = new phpMQTT($server, $port, $client_id);
+
+$sessionId = "A1B2C3D4";
+$topic = "dmi/auth/session/" . $sessionId;
+
+if ($mqtt->connect(true, NULL, $username, $password)) {
+    $mqtt->subscribe($topic, 0);
+    
+    // Слушаем 30 секунд
+    $startTime = time();
+    while ($mqtt->proc() && (time() - $startTime < 30)) {
+        // Ждем...
+    }
+    
+    $mqtt->close();
+}
+
+function procmsg($topic, $msg){
+    $data = json_decode($msg, true);
+    if (isset($data['status']) && $data['status'] == 'success') {
+        echo "Успешный вход!\n";
+        echo "Имя: " . $data['name'] . "\n";
+        echo "Телефон: " . $data['phone'] . "\n";
+    }
+}
+?&gt;</code></pre>
+
+        <h2 id="cpp">C++ (Arduino / ESP32)</h2>
+        <p>Идеально для умных устройств. Использует библиотеку <code>PubSubClient</code>.</p>
+        <pre><code class="language-cpp">#include &lt;WiFi.h&gt;
+#include &lt;PubSubClient.h&gt;
+
+const char* ssid = "YOUR_WIFI";
+const char* password = "YOUR_PASS";
+const char* mqtt_server = "broker.emqx.io";
+
+WiFiClient espClient;
+PubSubClient client(espClient);
+
+String sessionId = "A1B2C3D4";
+String topic = "dmi/auth/session/" + sessionId;
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  String message = "";
+  for (int i = 0; i < length; i++) {
+    message += (char)payload[i];
+  }
+  
+  if (message.indexOf("\"status\":\"success\"") > 0) {
+    Serial.println("Успешный вход!");
+    // Тут можно включить замок или зажечь свет
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
+  
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+  
+  if (client.connect("ESP32Client")) {
+    client.subscribe(topic.c_str());
+  }
+}
+
+void loop() {
+  if (!client.connected()) {
+    // Реконнект...
+  }
+  client.loop();
+}</code></pre>
+
+        <div style="margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--border); text-align: center; color: var(--text-muted); font-size: 14px;">
+            DMI ID © 2026. Документация для разработчиков.
+        </div>
+    </main>
+
+</body>
+</html>
