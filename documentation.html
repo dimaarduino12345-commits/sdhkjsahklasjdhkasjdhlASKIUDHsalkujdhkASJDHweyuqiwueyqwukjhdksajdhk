@@ -218,16 +218,16 @@
 
         <div class="alert alert-info">
             <div>
-                <strong>Ключевая особенность:</strong> Вы генерируете уникальный ID сессии, показываете пользователю ссылку (или QR-код), он подтверждает вход на телефоне, а ваше приложение мгновенно получает его имя и номер телефона.
+                <strong>Ключевая особенность:</strong> Ваш код автоматически генерирует уникальный ID сессии и ссылку для входа. Пользователь открывает её на телефоне, подтверждает вход, а ваше приложение мгновенно получает его имя и номер телефона.
             </div>
         </div>
 
         <h2 id="how-it-works">Как это работает</h2>
         <ol>
             <li>Ваше приложение генерирует случайный <code>sessionId</code> (например, <code>A1B2C3D4</code>).</li>
+            <li>Приложение формирует ссылку вида <code>auth.html?session=A1B2C3D4&app=Название</code>.</li>
             <li>Приложение подписывается на MQTT-топик <code>dmi/auth/session/A1B2C3D4</code>.</li>
-            <li>Пользователю показывается ссылка: <code>http://pasport-dmi.cc.cd/auth.html?session=A1B2C3D4&app=Название</code>.</li>
-            <li>Пользователь открывает ссылку на телефоне, вводит данные и свайпает.</li>
+            <li>Пользователь открывает ссылку, вводит данные и свайпает.</li>
             <li>Сайт отправляет в топик JSON: <code>{"status": "success", "phone": "+7999...", "name": "Иван"}</code>.</li>
             <li>Ваше приложение ловит это сообщение и авторизует пользователя.</li>
         </ol>
@@ -240,23 +240,25 @@
         </ul>
 
         <h2 id="js">JavaScript (Frontend)</h2>
-        <p>Пример реализации кнопки входа для веб-сайта с использованием MQTT через WebSockets.</p>
+        <p>Пример реализации кнопки входа для веб-сайта с использованием MQTT через WebSockets. Код автоматически генерирует ссылку.</p>
         <pre><code class="language-javascript">// 1. Подключаем MQTT клиент
 const mqttClient = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
-// 2. Генерируем ID сессии
+// 2. Генерируем случайный ID сессии
 const sessionId = Math.random().toString(36).substring(2, 10).toUpperCase();
 
-// 3. Формируем ссылку (передаем название приложения в app)
+// 3. Автоматически формируем ссылку
 const appName = "My Super App";
 const link = `http://pasport-dmi.cc.cd/auth.html?session=${sessionId}&app=${encodeURIComponent(appName)}`;
 
-// Показываем ссылку пользователю
+console.log("Отправьте пользователю эту ссылку:", link);
+
+// Выводим ссылку на экран
 document.getElementById('login-btn').onclick = () => {
     window.open(link, '_blank');
 };
 
-// 4. Ждем ответа
+// 4. Подписываемся на топик этой сессии и ждем ответа
 mqttClient.on('connect', () => {
     mqttClient.subscribe(`dmi/auth/session/${sessionId}`);
 });
@@ -274,11 +276,20 @@ mqttClient.on('message', (topic, message) => {
 });</code></pre>
 
         <h2 id="python">Python (Backend / Telegram Bot)</h2>
-        <p>Если вы хотите проверять вход через Python (например, в Telegram-боте).</p>
+        <p>Пример на Python, который сам генерирует уникальный код и ссылку, а затем ожидает подтверждения.</p>
         <pre><code class="language-python">import paho.mqtt.client as mqtt
 import json
+import random
+import string
 
-session_id = "A1B2C3D4" # ID, который вы передали пользователю
+# 1. Генерируем случайный ID сессии (8 символов)
+session_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+app_name = "My Super App"
+
+# 2. Автоматически формируем ссылку
+link = f"http://pasport-dmi.cc.cd/auth.html?session={session_id}&app={app_name}"
+print(f"Отправьте пользователю ссылку: {link}")
+
 topic = f"dmi/auth/session/{session_id}"
 
 def on_connect(client, userdata, flags, rc):
@@ -301,16 +312,26 @@ client.connect("broker.emqx.io", 1883, 60)
 client.loop_forever()</code></pre>
 
         <h2 id="nodejs">Node.js</h2>
-        <p>Для серверной части на Node.js используйте библиотеку <code>mqtt</code>.</p>
+        <p>Для серверной части на Node.js. Использует встроенный модуль <code>crypto</code> для генерации сессии.</p>
         <pre><code class="language-javascript">const mqtt = require('mqtt');
+const crypto = require('crypto');
+
 const client = mqtt.connect('mqtt://broker.emqx.io:1883');
 
-const sessionId = "TEST1234";
+// 1. Генерируем случайный ID
+const sessionId = crypto.randomBytes(4).toString('hex').toUpperCase();
+const appName = encodeURIComponent("My Super App");
+
+// 2. Формируем ссылку
+const link = `http://pasport-dmi.cc.cd/auth.html?session=${sessionId}&app=${appName}`;
+console.log("Ссылка для входа:", link);
+
 const topic = `dmi/auth/session/${sessionId}`;
 
+// 3. Ждем подтверждения
 client.on('connect', () => {
     client.subscribe(topic, (err) => {
-        if (!err) console.log(`Ожидание подтверждения для сессии ${sessionId}...`);
+        if (!err) console.log(`Ожидание подтверждения...`);
     });
 });
 
@@ -324,22 +345,26 @@ client.on('message', (topic, message) => {
 });</code></pre>
 
         <h2 id="php">PHP</h2>
-        <p>PHP не очень подходит для постоянного прослушивания MQTT, но можно использовать скрипт, который запускается по Cron или читает данные с задержкой.</p>
+        <p>Пример на PHP с автоматической генерацией уникального ID и ссылки.</p>
         <pre><code class="language-php">&lt;?php
 require('phpMQTT.php');
 
 $server = 'broker.emqx.io';
 $port = 1883;
-$username = '';
-$password = '';
 $client_id = 'phpClient' . rand();
 
-$mqtt = new phpMQTT($server, $port, $client_id);
+// 1. Генерируем случайный ID сессии
+$sessionId = strtoupper(bin2hex(random_bytes(4)));
+$appName = urlencode("My Super App");
 
-$sessionId = "A1B2C3D4";
+// 2. Формируем ссылку
+$link = "http://pasport-dmi.cc.cd/auth.html?session=" . $sessionId . "&app=" . $appName;
+echo "Ссылка для входа: " . $link . "\n";
+
+$mqtt = new phpMQTT($server, $port, $client_id);
 $topic = "dmi/auth/session/" . $sessionId;
 
-if ($mqtt->connect(true, NULL, $username, $password)) {
+if ($mqtt->connect(true, NULL, "", "")) {
     $mqtt->subscribe($topic, 0);
     
     // Слушаем 30 секунд
@@ -362,7 +387,7 @@ function procmsg($topic, $msg){
 ?&gt;</code></pre>
 
         <h2 id="cpp">C++ (Arduino / ESP32)</h2>
-        <p>Идеально для умных устройств. Использует библиотеку <code>PubSubClient</code>.</p>
+        <p>Пример для умных устройств. Код генерирует случайный ID при запуске и формирует ссылку для вывода в Serial-порт (или на экран).</p>
         <pre><code class="language-cpp">#include &lt;WiFi.h&gt;
 #include &lt;PubSubClient.h&gt;
 
@@ -373,8 +398,18 @@ const char* mqtt_server = "broker.emqx.io";
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-String sessionId = "A1B2C3D4";
-String topic = "dmi/auth/session/" + sessionId;
+String sessionId = "";
+String topic = "";
+
+// Функция генерации случайного ID
+String generateSessionId() {
+  String str = "";
+  const char chars[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  for (int i = 0; i < 8; i++) {
+    str += chars[random(0, 36)];
+  }
+  return str;
+}
 
 void callback(char* topic, byte* payload, unsigned int length) {
   String message = "";
@@ -390,8 +425,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 void setup() {
   Serial.begin(115200);
-  WiFi.begin(ssid, password);
   
+  // 1. Генерируем ID и ссылку
+  sessionId = generateSessionId();
+  topic = "dmi/auth/session/" + sessionId;
+  String appName = "My%20Super%20App"; // URL-encoded
+  String link = "http://pasport-dmi.cc.cd/auth.html?session=" + sessionId + "&app=" + appName;
+  
+  Serial.println("Отправьте пользователю ссылку:");
+  Serial.println(link);
+  
+  WiFi.begin(ssid, password);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
   }
@@ -399,6 +443,7 @@ void setup() {
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
   
+  // 2. Подписываемся на созданный топик
   if (client.connect("ESP32Client")) {
     client.subscribe(topic.c_str());
   }
